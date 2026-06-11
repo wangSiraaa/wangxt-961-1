@@ -1,0 +1,38 @@
+spring:
+  application:
+    name: charging-shed
+  datasource:
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:charging_shed}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: ${DB_USER:root}
+    password: ${DB_PASSWORD:root}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+        format_sql: true
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:db/schema.sql
+      data-locations: classpath:db/data.sql
+
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+jwt:
+  secret: ${JWT_SECRET:charging-shed-secret-key-for-jwt-token-generation}
+  expiration: 86400000
+
+charging:
+  temperature:
+    threshold: 55.0
+    auto-power-off: true
+  billing:
+    default-price-per-kwh: 1.2
+    default-service-fee: 0.5
