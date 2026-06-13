@@ -80,7 +80,7 @@
             v-if="row.status !== 'RESOLVED' && !row.autoPowerOff"
             type="danger"
             size="small"
-            @click="powerOff(row)"
+            @click="handlePowerOff(row)"
           >
             断电
           </el-button>
@@ -88,7 +88,7 @@
             v-if="row.status === 'RESOLVED' && !row.powerEnabled"
             type="success"
             size="small"
-            @click="powerOn(row)"
+            @click="handlePowerOn(row)"
           >
             通电
           </el-button>
@@ -126,7 +126,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getAlertList, handleAlert, resolveAlert, powerOff, powerOn } from '@/api/safety'
+import { getAlertList, handleAlert as handleAlertApi, resolveAlert as resolveAlertApi, powerOff as powerOffApi, powerOn as powerOnApi } from '@/api/safety'
 import dayjs from 'dayjs'
 
 const loading = ref(false)
@@ -208,7 +208,7 @@ const submitHandle = async () => {
     if (valid) {
       submitting.value = true
       try {
-        await handleAlert(currentAlert.value.id, handleForm.handleRemark)
+        await handleAlertApi(currentAlert.value.id, handleForm.handleRemark)
         ElMessage.success('已开始处理')
         showHandleDialog.value = false
         handleForm.handleRemark = ''
@@ -227,7 +227,7 @@ const resolveAlert = async (row) => {
     await ElMessageBox.confirm('确认该告警已处理完成？', '确认完成', {
       type: 'warning'
     })
-    await resolveAlert(row.id, '问题已解决，温度已恢复正常')
+    await resolveAlertApi(row.id, '问题已解决，温度已恢复正常')
     ElMessage.success('告警已处理完成')
     loadAlerts()
   } catch (error) {
@@ -244,7 +244,7 @@ const handlePowerOff = async (row) => {
       '确认断电',
       { type: 'danger' }
     )
-    await powerOff(row.portId)
+    await powerOffApi(row.portId)
     ElMessage.success('已断电')
     loadAlerts()
   } catch (error) {
@@ -261,7 +261,7 @@ const handlePowerOn = async (row) => {
       '确认通电',
       { type: 'warning' }
     )
-    await powerOn(row.portId)
+    await powerOnApi(row.portId)
     ElMessage.success('已通电')
     loadAlerts()
   } catch (error) {

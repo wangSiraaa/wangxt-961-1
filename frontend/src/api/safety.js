@@ -16,6 +16,14 @@ export function handleAlert(alertId, data) {
   })
 }
 
+export function resolveAlert(alertId, remark) {
+  return request({
+    url: `/safety/alert/resolve/${alertId}`,
+    method: 'post',
+    data: { remark }
+  })
+}
+
 export function getAlertList(status, level) {
   return request({
     url: '/safety/alert/list',

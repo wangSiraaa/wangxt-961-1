@@ -153,7 +153,7 @@ import { useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Lightning } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
-import { getCurrentCharging, startCharging, stopCharging, getChargingRecords } from '@/api/charging'
+import { getCurrentCharging, startCharging as startChargingApi, stopCharging as stopChargingApi, getChargingRecords } from '@/api/charging'
 import { getReservationList } from '@/api/reservation'
 import { getAlertList } from '@/api/safety'
 import dayjs from 'dayjs'
@@ -238,7 +238,7 @@ const startCharging = async () => {
     if (valid) {
       starting.value = true
       try {
-        await startCharging({
+        await startChargingApi({
           reservationId: startForm.reservationId,
           startSoc: startForm.startSoc
         })
@@ -260,7 +260,7 @@ const stopCharging = async () => {
     })
     
     stopping.value = true
-    await stopCharging({
+    await stopChargingApi({
       recordId: currentCharging.value.id,
       endSoc: currentCharging.value.currentSoc || 80
     })

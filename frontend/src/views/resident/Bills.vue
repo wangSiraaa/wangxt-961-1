@@ -181,7 +181,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
-import { getBills, getUnpaidBills, payBill } from '@/api/charging'
+import { getBills, getUnpaidBills, payBill as payBillApi } from '@/api/charging'
 import { recharge } from '@/api/user'
 import dayjs from 'dayjs'
 
@@ -285,7 +285,7 @@ const submitPay = async () => {
   
   paying.value = true
   try {
-    await payBill(currentBill.value.id, payForm.paymentMethod, currentBill.value.amount)
+    await payBillApi(currentBill.value.id, payForm.paymentMethod, currentBill.value.amount)
     ElMessage.success('支付成功')
     showPayDialog.value = false
     loadBills()
