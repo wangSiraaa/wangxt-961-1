@@ -181,7 +181,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
-import { getBills, getUnpaidBills, payBill as payBillApi } from '@/api/charging'
+import { getBills, getUnpaidBills, payBill as payBillApi, getPaymentByBillingId } from '@/api/charging'
 import { recharge } from '@/api/user'
 import dayjs from 'dayjs'
 
@@ -299,10 +299,10 @@ const submitPay = async () => {
 
 const viewPayment = async (billingId) => {
   try {
-    const data = await import('@/api/charging').then(m => m.getPaymentByBillingId(billingId))
+    const data = await getPaymentByBillingId(billingId)
     if (data) {
       ElMessageBox.alert(
-        `支付ID：${data.id}\n交易号：${data.transactionId}\n支付方式：${data.paymentMethod}\n支付时间：${formatTime(data.paidAt)}`,
+        `支付ID：${data.id}\n交易号：${data.transactionId}\n支付方式：${data.paymentMethod}\n支付时间：${formatTime(data.createdAt)}`,
         '支付详情'
       )
     }

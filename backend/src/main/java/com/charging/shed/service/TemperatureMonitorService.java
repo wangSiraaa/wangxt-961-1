@@ -125,17 +125,32 @@ public class TemperatureMonitorService {
                 .orElseThrow(() -> new BusinessException("告警不存在"));
 
         if (!TemperatureAlert.Status.PENDING.equals(alert.getStatus())) {
-            throw new BusinessException("该告警已处理");
+            throw new BusinessException("该告警已处理或处理中");
         }
 
         alert.setStatus(TemperatureAlert.Status.PROCESSING);
-        alert = temperatureAlertRepository.save(alert);
+        alert.setHandledBy(handlerId);
+        alert.setHandleResult(handleResult);
+        alert.setRemark(remark);
+
+        return temperatureAlertRepository.save(alert);
+    }
+
+    @Transactional
+    public TemperatureAlert resolveAlert(Long alertId, Long handlerId, String remark) {
+        TemperatureAlert alert = temperatureAlertRepository.findById(alertId)
+                .orElseThrow(() -> new BusinessException("告警不存在"));
+
+        if (!TemperatureAlert.Status.PROCESSING.equals(alert.getStatus())) {
+            throw new BusinessException("该告警不在处理中，无法完成");
+        }
 
         alert.setStatus(TemperatureAlert.Status.RESOLVED);
         alert.setHandledBy(handlerId);
         alert.setHandledAt(LocalDateTime.now());
-        alert.setHandleResult(handleResult);
-        alert.setRemark(remark);
+        if (remark != null && !remark.isEmpty()) {
+            alert.setRemark(remark);
+        }
 
         return temperatureAlertRepository.save(alert);
     }

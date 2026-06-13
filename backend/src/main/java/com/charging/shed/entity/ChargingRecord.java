@@ -1,5 +1,6 @@
 package com.charging.shed.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
@@ -58,10 +59,12 @@ public class ChargingRecord {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reservation_id", insertable = false, updatable = false)
+    @JsonIgnore
     private Reservation reservation;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "port_id", insertable = false, updatable = false)
+    @JsonIgnore
     private ChargingPort port;
 
     @CreationTimestamp
@@ -71,6 +74,16 @@ public class ChargingRecord {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @Transient
+    public BigDecimal getCurrentSoc() {
+        return this.endSoc != null ? this.endSoc : this.startSoc;
+    }
+
+    @Transient
+    public BigDecimal getCurrentTemperature() {
+        return this.maxTemperature != null ? this.maxTemperature : this.avgTemperature;
+    }
 
     public interface Status {
         String CHARGING = "CHARGING";

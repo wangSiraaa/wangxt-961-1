@@ -6,7 +6,9 @@ import com.charging.shed.dto.ChargingStopDTO;
 import com.charging.shed.dto.PaymentDTO;
 import com.charging.shed.entity.Billing;
 import com.charging.shed.entity.ChargingRecord;
+import com.charging.shed.entity.Payment;
 import com.charging.shed.service.ChargingService;
+import com.charging.shed.repository.PaymentRepository;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
@@ -18,9 +20,11 @@ import java.util.List;
 public class ChargingController {
 
     private final ChargingService chargingService;
+    private final PaymentRepository paymentRepository;
 
-    public ChargingController(ChargingService chargingService) {
+    public ChargingController(ChargingService chargingService, PaymentRepository paymentRepository) {
         this.chargingService = chargingService;
+        this.paymentRepository = paymentRepository;
     }
 
     @PostMapping("/start")
@@ -75,5 +79,19 @@ public class ChargingController {
         Billing billing = chargingService.payBill(userId, dto.getBillingId(),
                 dto.getPaymentMethod(), dto.getAmount());
         return ApiResponse.success(billing);
+    }
+
+    @GetMapping("/payment/{billingId}")
+    public ApiResponse<Payment> getPaymentByBillingId(@RequestAttribute("userId") Long userId,
+                                                      @PathVariable Long billingId) {
+        List<Payment> payments = paymentRepository.findByBillingId(billingId);
+        if (payments.isEmpty()) {
+            return ApiResponse.success(null);
+        }
+        Payment payment = payments.get(0);
+        if (!payment.getUserId().equals(userId)) {
+            return ApiResponse.success(null);
+        }
+        return ApiResponse.success(payment);
     }
 }

@@ -1,5 +1,6 @@
 package com.charging.shed.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import org.hibernate.annotations.CreationTimestamp;
@@ -53,18 +54,22 @@ public class TemperatureAlert {
     @Column(name = "auto_power_off")
     private Boolean autoPowerOff = false;
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "port_id", insertable = false, updatable = false)
     private ChargingPort port;
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reservation_id", insertable = false, updatable = false)
     private Reservation reservation;
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "vehicle_id", insertable = false, updatable = false)
     private Vehicle vehicle;
 
+    @JsonIgnore
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "handled_by", insertable = false, updatable = false)
     private User handler;
@@ -76,6 +81,21 @@ public class TemperatureAlert {
     @UpdateTimestamp
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+    @Transient
+    public BigDecimal getCurrentTemperature() {
+        return this.temperature;
+    }
+
+    @Transient
+    public LocalDateTime getAlertTime() {
+        return this.createdAt;
+    }
+
+    @Transient
+    public Boolean getPowerEnabled() {
+        return this.port != null ? this.port.getPowerOn() : !Boolean.TRUE.equals(this.autoPowerOff);
+    }
 
     public interface AlertLevel {
         String WARNING = "WARNING";

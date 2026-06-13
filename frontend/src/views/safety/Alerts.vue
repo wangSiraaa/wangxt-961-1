@@ -6,7 +6,7 @@
         <el-select v-model="filterStatus" placeholder="状态筛选" style="width: 150px;" @change="loadAlerts" clearable>
           <el-option label="全部" value="" />
           <el-option label="待处理" value="PENDING" />
-          <el-option label="处理中" value="HANDLING" />
+          <el-option label="处理中" value="PROCESSING" />
           <el-option label="已处理" value="RESOLVED" />
         </el-select>
       </div>
@@ -69,7 +69,7 @@
             开始处理
           </el-button>
           <el-button
-            v-if="row.status === 'HANDLING'"
+            v-if="row.status === 'PROCESSING'"
             type="success"
             size="small"
             @click="resolveAlert(row)"
@@ -103,9 +103,17 @@
         :rules="handleRules"
         label-width="100px"
       >
-        <el-form-item label="处理备注" prop="handleRemark">
+        <el-form-item label="处理结果" prop="handleResult">
+          <el-select v-model="handleForm.handleResult" placeholder="请选择处理结果">
+            <el-option label="已派人到场处理" value="已派人到场处理" />
+            <el-option label="已执行断电保护" value="已执行断电保护" />
+            <el-option label="联系车主挪车" value="联系车主挪车" />
+            <el-option label="误报，温度正常" value="误报，温度正常" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="处理备注" prop="remark">
           <el-input
-            v-model="handleForm.handleRemark"
+            v-model="handleForm.remark"
             type="textarea"
             :rows="4"
             placeholder="请输入处理说明"
@@ -139,11 +147,13 @@ const handleFormRef = ref()
 let timer = null
 
 const handleForm = reactive({
-  handleRemark: ''
+  handleResult: '已派人到场处理',
+  remark: ''
 })
 
 const handleRules = {
-  handleRemark: [{ required: true, message: '请输入处理备注', trigger: 'blur' }]
+  handleResult: [{ required: true, message: '请输入处理结果', trigger: 'blur' }],
+  remark: [{ required: true, message: '请输入处理备注', trigger: 'blur' }]
 }
 
 const pendingCount = computed(() => {
@@ -159,7 +169,7 @@ const getTempColor = (temp) => {
 const statusTagType = (status) => {
   const types = {
     'PENDING': 'danger',
-    'HANDLING': 'warning',
+    'PROCESSING': 'warning',
     'RESOLVED': 'success'
   }
   return types[status] || 'info'
@@ -168,7 +178,7 @@ const statusTagType = (status) => {
 const statusText = (status) => {
   const texts = {
     'PENDING': '待处理',
-    'HANDLING': '处理中',
+    'PROCESSING': '处理中',
     'RESOLVED': '已处理'
   }
   return texts[status] || status
@@ -208,10 +218,14 @@ const submitHandle = async () => {
     if (valid) {
       submitting.value = true
       try {
-        await handleAlertApi(currentAlert.value.id, handleForm.handleRemark)
+        await handleAlertApi(currentAlert.value.id, {
+          handleResult: handleForm.handleResult,
+          remark: handleForm.remark
+        })
         ElMessage.success('已开始处理')
         showHandleDialog.value = false
-        handleForm.handleRemark = ''
+        handleForm.handleResult = '已派人到场处理'
+        handleForm.remark = ''
         loadAlerts()
       } catch (error) {
         console.error('处理失败:', error)

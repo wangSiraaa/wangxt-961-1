@@ -1,6 +1,7 @@
 package com.charging.shed.controller;
 
 import com.charging.shed.dto.AlertHandleDTO;
+import com.charging.shed.dto.AlertResolveDTO;
 import com.charging.shed.dto.ApiResponse;
 import com.charging.shed.dto.TemperatureReportDTO;
 import com.charging.shed.entity.TemperatureAlert;
@@ -48,6 +49,17 @@ public class SafetyController {
         Long officerId = securityUtil.getCurrentUserId();
         TemperatureAlert alert = temperatureMonitorService.handleAlert(
                 alertId, officerId, dto.getHandleResult(), dto.getRemark()
+        );
+        return ApiResponse.success(alert);
+    }
+
+    @PostMapping("/alert/resolve/{alertId}")
+    public ApiResponse<TemperatureAlert> resolveAlert(@PathVariable Long alertId,
+                                                      @RequestBody AlertResolveDTO dto) {
+        checkSafetyRole();
+        Long officerId = securityUtil.getCurrentUserId();
+        TemperatureAlert alert = temperatureMonitorService.resolveAlert(
+                alertId, officerId, dto != null ? dto.getRemark() : null
         );
         return ApiResponse.success(alert);
     }

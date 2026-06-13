@@ -51,10 +51,17 @@ export function getUnpaidBills() {
   })
 }
 
-export function payBill(billId, paymentMethod, amount) {
+export function payBill(billingId, paymentMethod, amount) {
   return request({
     url: '/charging/pay',
     method: 'post',
-    data: { billId, paymentMethod, amount }
+    data: { billingId, paymentMethod, amount }
+  })
+}
+
+export function getPaymentByBillingId(billingId) {
+  return request({
+    url: `/charging/payment/${billingId}`,
+    method: 'get'
   })
 }
