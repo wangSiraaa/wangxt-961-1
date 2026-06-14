@@ -24,11 +24,17 @@ public class PricingRule {
     @Column(name = "shed_id")
     private Long shedId;
 
+    @Column(name = "community_id", length = 50)
+    private String communityId;
+
     @Column(name = "price_per_kwh", nullable = false, precision = 8, scale = 4)
     private BigDecimal pricePerKwh;
 
     @Column(name = "service_fee", precision = 8, scale = 4)
     private BigDecimal serviceFee = BigDecimal.ZERO;
+
+    @Column(name = "free_minutes")
+    private Integer freeMinutes = 0;
 
     @Column(name = "peak_start_time")
     private LocalTime peakStartTime;
@@ -47,6 +53,9 @@ public class PricingRule {
 
     @Column(name = "valley_price_multiplier", precision = 4, scale = 2)
     private BigDecimal valleyPriceMultiplier = new BigDecimal("0.5");
+
+    @Column(name = "flat_price_multiplier", precision = 4, scale = 2)
+    private BigDecimal flatPriceMultiplier = new BigDecimal("1.0");
 
     @Column(name = "is_default")
     private Boolean defaultRule = false;

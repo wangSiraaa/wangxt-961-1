@@ -7,6 +7,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
@@ -82,8 +84,8 @@ public class ChargingService {
         record.setStatus(ChargingRecord.Status.COMPLETED);
         record.setStopReason(stopReason);
 
-        long minutes = java.time.Duration.between(record.getStartTime(), record.getEndTime()).toMinutes();
-        BigDecimal hours = BigDecimal.valueOf(minutes).divide(BigDecimal.valueOf(60), 4, java.math.RoundingMode.HALF_UP);
+        long minutes = Duration.between(record.getStartTime(), record.getEndTime()).toMinutes();
+        BigDecimal hours = BigDecimal.valueOf(minutes).divide(BigDecimal.valueOf(60), 4, RoundingMode.HALF_UP);
 
         ChargingPort port = propertyService.getPortById(record.getPortId());
         BigDecimal energyConsumed = port.getPowerRating().multiply(hours);
@@ -99,7 +101,7 @@ public class ChargingService {
             BigDecimal avgTemp = tempHistory.stream()
                     .map(TemperatureHistory::getTemperature)
                     .reduce(BigDecimal.ZERO, BigDecimal::add)
-                    .divide(BigDecimal.valueOf(tempHistory.size()), 2, java.math.RoundingMode.HALF_UP);
+                    .divide(BigDecimal.valueOf(tempHistory.size()), 2, RoundingMode.HALF_UP);
             record.setMaxTemperature(maxTemp);
             record.setAvgTemperature(avgTemp);
         }
@@ -118,10 +120,32 @@ public class ChargingService {
         PricingRule rule = propertyService.getApplicableRule(
                 propertyService.getPortById(record.getPortId()).getShedId());
 
-        BigDecimal totalPrice = calculateChargingPrice(record, rule);
+        BillingDetail detail = calculateTimeSegmentBilling(record, rule);
 
-        BigDecimal serviceFee = rule.getServiceFee().multiply(record.getEnergyConsumed());
-        BigDecimal totalAmount = totalPrice.add(serviceFee);
+        int freeMin = rule.getFreeMinutes() != null ? rule.getFreeMinutes() : 0;
+        long totalMinutes = Duration.between(record.getStartTime(), record.getEndTime()).toMinutes();
+        if (totalMinutes <= 0) {
+            totalMinutes = 1;
+        }
+
+        BigDecimal freeRatio = BigDecimal.ZERO;
+        if (freeMin > 0) {
+            freeRatio = BigDecimal.valueOf(Math.min(freeMin, totalMinutes))
+                    .divide(BigDecimal.valueOf(totalMinutes), 4, RoundingMode.HALF_UP);
+        }
+
+        BigDecimal energyAfterFree = record.getEnergyConsumed()
+                .multiply(BigDecimal.ONE.subtract(freeRatio))
+                .setScale(2, RoundingMode.HALF_UP);
+
+        BigDecimal energyAmountAfterFree = detail.totalAmount
+                .multiply(BigDecimal.ONE.subtract(freeRatio))
+                .setScale(2, RoundingMode.HALF_UP);
+
+        BigDecimal serviceFee = rule.getServiceFee().multiply(energyAfterFree)
+                .setScale(2, RoundingMode.HALF_UP);
+
+        BigDecimal totalAmount = energyAmountAfterFree.add(serviceFee);
 
         Billing billing = new Billing();
         billing.setUserId(record.getUserId());
@@ -132,6 +156,13 @@ public class ChargingService {
         billing.setEnergyConsumed(record.getEnergyConsumed());
         billing.setPricePerKwh(rule.getPricePerKwh());
         billing.setServiceFee(serviceFee);
+        billing.setPeakEnergy(detail.peakEnergy);
+        billing.setValleyEnergy(detail.valleyEnergy);
+        billing.setFlatEnergy(detail.flatEnergy);
+        billing.setPeakAmount(detail.peakAmount);
+        billing.setValleyAmount(detail.valleyAmount);
+        billing.setFlatAmount(detail.flatAmount);
+        billing.setFreeMinutes(freeMin);
         billing.setStatus(Billing.Status.UNPAID);
         billing.setDueDate(LocalDateTime.now().plusDays(7).toLocalDate());
 
@@ -144,28 +175,68 @@ public class ChargingService {
         return billing;
     }
 
-    public BigDecimal calculateChargingPrice(ChargingRecord record, PricingRule rule) {
-        BigDecimal energy = record.getEnergyConsumed();
-        LocalTime startTime = record.getStartTime().toLocalTime();
-        LocalTime endTime = record.getEndTime() != null
-                ? record.getEndTime().toLocalTime()
-                : LocalTime.now();
+    public BillingDetail calculateTimeSegmentBilling(ChargingRecord record, PricingRule rule) {
+        LocalDateTime start = record.getStartTime();
+        LocalDateTime end = record.getEndTime() != null ? record.getEndTime() : LocalDateTime.now();
 
-        BigDecimal multiplier = BigDecimal.ONE;
+        long totalMinutes = Duration.between(start, end).toMinutes();
+        if (totalMinutes <= 0) {
+            totalMinutes = 1;
+        }
 
-        if (rule.getPeakStartTime() != null && rule.getPeakEndTime() != null) {
-            if (!startTime.isBefore(rule.getPeakStartTime()) && !endTime.isAfter(rule.getPeakEndTime())) {
-                multiplier = rule.getPeakPriceMultiplier();
+        long peakMinutes = 0;
+        long valleyMinutes = 0;
+        long flatMinutes = 0;
+
+        for (long i = 0; i < totalMinutes; i++) {
+            LocalDateTime currentMinute = start.plusMinutes(i);
+            LocalTime timeOfDay = currentMinute.toLocalTime();
+
+            if (isInTimeRange(timeOfDay, rule.getPeakStartTime(), rule.getPeakEndTime())) {
+                peakMinutes++;
+            } else if (isInTimeRange(timeOfDay, rule.getValleyStartTime(), rule.getValleyEndTime())) {
+                valleyMinutes++;
+            } else {
+                flatMinutes++;
             }
         }
 
-        if (rule.getValleyStartTime() != null && rule.getValleyEndTime() != null) {
-            if (!startTime.isBefore(rule.getValleyStartTime()) && !endTime.isAfter(rule.getValleyEndTime())) {
-                multiplier = rule.getValleyPriceMultiplier();
-            }
-        }
+        BigDecimal totalEnergy = record.getEnergyConsumed();
+        BigDecimal energyPerMinute = totalEnergy.divide(BigDecimal.valueOf(totalMinutes), 6, RoundingMode.HALF_UP);
 
-        return rule.getPricePerKwh().multiply(energy).multiply(multiplier);
+        BigDecimal peakEnergy = energyPerMinute.multiply(BigDecimal.valueOf(peakMinutes))
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal valleyEnergy = energyPerMinute.multiply(BigDecimal.valueOf(valleyMinutes))
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal flatEnergy = energyPerMinute.multiply(BigDecimal.valueOf(flatMinutes))
+                .setScale(2, RoundingMode.HALF_UP);
+
+        BigDecimal basePrice = rule.getPricePerKwh();
+        BigDecimal peakAmount = peakEnergy.multiply(basePrice)
+                .multiply(rule.getPeakPriceMultiplier())
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal valleyAmount = valleyEnergy.multiply(basePrice)
+                .multiply(rule.getValleyPriceMultiplier())
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal flatAmount = flatEnergy.multiply(basePrice)
+                .multiply(rule.getFlatPriceMultiplier())
+                .setScale(2, RoundingMode.HALF_UP);
+
+        BigDecimal totalAmount = peakAmount.add(valleyAmount).add(flatAmount);
+
+        return new BillingDetail(peakEnergy, valleyEnergy, flatEnergy,
+                peakAmount, valleyAmount, flatAmount, totalAmount);
+    }
+
+    private boolean isInTimeRange(LocalTime time, LocalTime rangeStart, LocalTime rangeEnd) {
+        if (rangeStart == null || rangeEnd == null) {
+            return false;
+        }
+        if (rangeStart.isBefore(rangeEnd)) {
+            return !time.isBefore(rangeStart) && time.isBefore(rangeEnd);
+        } else {
+            return !time.isBefore(rangeStart) || time.isBefore(rangeEnd);
+        }
     }
 
     @Transactional
@@ -212,5 +283,35 @@ public class ChargingService {
 
     public List<Billing> getUserUnpaidBills(Long userId) {
         return billingRepository.findByUserIdAndStatus(userId, Billing.Status.UNPAID);
+    }
+
+    public static class BillingDetail {
+        private final BigDecimal peakEnergy;
+        private final BigDecimal valleyEnergy;
+        private final BigDecimal flatEnergy;
+        private final BigDecimal peakAmount;
+        private final BigDecimal valleyAmount;
+        private final BigDecimal flatAmount;
+        private final BigDecimal totalAmount;
+
+        public BillingDetail(BigDecimal peakEnergy, BigDecimal valleyEnergy, BigDecimal flatEnergy,
+                             BigDecimal peakAmount, BigDecimal valleyAmount, BigDecimal flatAmount,
+                             BigDecimal totalAmount) {
+            this.peakEnergy = peakEnergy;
+            this.valleyEnergy = valleyEnergy;
+            this.flatEnergy = flatEnergy;
+            this.peakAmount = peakAmount;
+            this.valleyAmount = valleyAmount;
+            this.flatAmount = flatAmount;
+            this.totalAmount = totalAmount;
+        }
+
+        public BigDecimal getPeakEnergy() { return peakEnergy; }
+        public BigDecimal getValleyEnergy() { return valleyEnergy; }
+        public BigDecimal getFlatEnergy() { return flatEnergy; }
+        public BigDecimal getPeakAmount() { return peakAmount; }
+        public BigDecimal getValleyAmount() { return valleyAmount; }
+        public BigDecimal getFlatAmount() { return flatAmount; }
+        public BigDecimal getTotalAmount() { return totalAmount; }
     }
 }

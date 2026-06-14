@@ -36,4 +36,10 @@ public class PricingRuleDTO {
 
     @NotNull(message = "是否启用不能为空")
     private Boolean isActive;
+
+    private String communityId;
+
+    private Integer freeMinutes;
+
+    private BigDecimal flatPriceMultiplier;
 }

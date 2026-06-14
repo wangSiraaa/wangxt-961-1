@@ -17,4 +17,6 @@ public interface VehicleRepository extends JpaRepository<Vehicle, Long> {
     List<Vehicle> findByUserIdAndVerified(Long userId, Boolean verified);
 
     boolean existsByPlateNumber(String plateNumber);
+
+    List<Vehicle> findByStatus(String status);
 }

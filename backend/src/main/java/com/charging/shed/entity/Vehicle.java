@@ -26,6 +26,9 @@ public class Vehicle {
     @Column(name = "vehicle_type", length = 50)
     private String vehicleType;
 
+    @Column(name = "battery_brand", length = 50)
+    private String batteryBrand;
+
     @Column(name = "battery_capacity", precision = 5, scale = 2)
     private BigDecimal batteryCapacity;
 
@@ -34,6 +37,12 @@ public class Vehicle {
 
     @Column(length = 20)
     private String status = "NORMAL";
+
+    @Column(name = "frozen_reason", length = 255)
+    private String frozenReason;
+
+    @Column(name = "frozen_at")
+    private LocalDateTime frozenAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", insertable = false, updatable = false)
@@ -50,5 +59,6 @@ public class Vehicle {
     public interface Status {
         String NORMAL = "NORMAL";
         String ABNORMAL = "ABNORMAL";
+        String FROZEN = "FROZEN";
     }
 }

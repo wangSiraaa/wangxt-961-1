@@ -31,17 +31,28 @@
           <div style="color: #909399;">至 {{ formatTime(row.reserveEndTime) }}</div>
         </template>
       </el-table-column>
-      <el-table-column prop="status" label="状态" width="120">
+      <el-table-column prop="status" label="状态" width="160">
         <template #default="{ row }">
           <el-tag :type="statusTagType(row.status)">
-            {{ statusText(row.status) }}
+            {{ statusText(row.status, row.queuePosition) }}
           </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column label="排队信息" width="200">
+        <template #default="{ row }">
+          <template v-if="row.status === 'QUEUED'">
+            <div>排队位置：第 {{ row.queuePosition }} 位</div>
+            <div v-if="row.scheduledStartTime" style="color: #909399; font-size: 12px; margin-top: 4px;">
+              预计开始时间：{{ formatTime(row.scheduledStartTime) }}
+            </div>
+          </template>
+          <span v-else style="color: #c0c4cc;">-</span>
         </template>
       </el-table-column>
       <el-table-column label="操作" width="150">
         <template #default="{ row }">
           <el-button
-            v-if="row.status === 'PENDING' || row.status === 'CONFIRMED'"
+            v-if="row.status === 'PENDING' || row.status === 'CONFIRMED' || row.status === 'QUEUED'"
             type="danger"
             size="small"
             @click="cancelReservation(row.id)"
@@ -72,6 +83,21 @@
         :rules="reserveRules"
         label-width="120px"
       >
+        <div class="balance-info">
+          <el-icon><Wallet /></el-icon>
+          <span>账户余额：<strong :class="{ 'negative': (userStore.userInfo?.balance ?? 0) < 0 }">{{ (userStore.userInfo?.balance ?? 0).toFixed(2) }}</strong> 元</span>
+          <el-button type="primary" link size="small" @click="$router.push('/resident/profile')">充值</el-button>
+        </div>
+
+        <el-alert
+          v-if="batteryBlacklistWarning"
+          :title="batteryBlacklistWarning"
+          type="warning"
+          :closable="true"
+          class="mb-20"
+          @close="batteryBlacklistWarning = ''"
+        />
+
         <el-form-item label="选择车辆" prop="vehicleId">
           <el-select v-model="reserveForm.vehicleId" placeholder="请选择车辆" style="width: 100%;">
             <el-option
@@ -129,6 +155,11 @@
           />
         </el-form-item>
 
+        <div class="queue-notice">
+          <el-icon><InfoFilled /></el-icon>
+          <span>如所选时段无可用充电位，系统将自动为您安排排队</span>
+        </div>
+
         <el-form-item v-if="reserveForm.shedId && pricingRule">
           <div class="pricing-info">
             <p><strong>计费规则：</strong></p>
@@ -157,10 +188,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed, watch } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, Wallet, InfoFilled } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
 import { getVehicleList } from '@/api/vehicle'
 import { getReservationList, createReservation, cancelReservation, getAvailablePorts } from '@/api/reservation'
@@ -179,6 +210,7 @@ const availablePorts = ref([])
 const pricingRule = ref(null)
 const showCreateDialog = ref(false)
 const reserveFormRef = ref()
+const batteryBlacklistWarning = ref('')
 
 const reserveForm = reactive({
   vehicleId: null,
@@ -215,6 +247,7 @@ const statusTagType = (status) => {
   const types = {
     'PENDING': 'info',
     'CONFIRMED': 'success',
+    'QUEUED': 'warning',
     'IN_PROGRESS': 'warning',
     'COMPLETED': '',
     'CANCELLED': 'info',
@@ -223,10 +256,11 @@ const statusTagType = (status) => {
   return types[status] || 'info'
 }
 
-const statusText = (status) => {
+const statusText = (status, queuePosition) => {
   const texts = {
     'PENDING': '待确认',
     'CONFIRMED': '已确认',
+    'QUEUED': queuePosition ? `排队中 #${queuePosition}` : '排队中',
     'IN_PROGRESS': '充电中',
     'COMPLETED': '已完成',
     'CANCELLED': '已取消',
@@ -314,6 +348,7 @@ const resetForm = () => {
   reserveForm.reserveEndTime = null
   availablePorts.value = []
   pricingRule.value = null
+  batteryBlacklistWarning.value = ''
   if (reserveFormRef.value) {
     reserveFormRef.value.resetFields()
   }
@@ -337,16 +372,29 @@ const submitReservation = async () => {
       
       submitting.value = true
       try {
-        await createReservation({
+        const result = await createReservation({
           vehicleId: reserveForm.vehicleId,
           portId: reserveForm.portId,
           reserveStartTime: reserveForm.reserveStartTime,
           reserveEndTime: reserveForm.reserveEndTime
         })
-        ElMessage.success('预约创建成功')
+        
+        if (result.status === 'QUEUED') {
+          const scheduledTime = result.scheduledStartTime
+            ? formatTime(result.scheduledStartTime)
+            : '待系统计算'
+          ElMessage.warning(`充电位暂无空闲，已为您加入排队，预计开始时间：${scheduledTime}`)
+        } else {
+          ElMessage.success('预约创建成功')
+        }
+        
         showCreateDialog.value = false
         loadReservations()
       } catch (error) {
+        const errorMsg = error?.response?.data?.message || error?.message || ''
+        if (errorMsg.includes('黑名单') || errorMsg.includes('blacklist') || errorMsg.includes('电池品牌')) {
+          batteryBlacklistWarning.value = `电池品牌受限：${errorMsg}`
+        }
         console.error('创建预约失败:', error)
       } finally {
         submitting.value = false
@@ -395,5 +443,38 @@ onMounted(() => {
     font-size: 13px;
     color: #606266;
   }
+}
+
+.balance-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  background: #ecf5ff;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #606266;
+
+  strong {
+    color: #409eff;
+    font-size: 18px;
+
+    &.negative {
+      color: #f56c6c;
+    }
+  }
+}
+
+.queue-notice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  margin-bottom: 20px;
+  background: #fdf6ec;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #e6a23c;
 }
 </style>

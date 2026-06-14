@@ -36,3 +36,11 @@ export function getAvailablePorts(shedId, startTime, endTime) {
     params: { shedId, startTime, endTime }
   })
 }
+
+export function getQueuedReservations(shedId) {
+  return request({
+    url: '/reservation/queued',
+    method: 'get',
+    params: { shedId }
+  })
+}

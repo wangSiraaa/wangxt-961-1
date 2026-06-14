@@ -24,4 +24,10 @@ public interface PricingRuleRepository extends JpaRepository<PricingRule, Long> 
     @Query("SELECT p FROM PricingRule p WHERE (p.shedId = :shedId OR p.shedId IS NULL) " +
            "AND p.status = 'ACTIVE' ORDER BY p.shedId DESC NULLS LAST")
     List<PricingRule> findApplicableRules(@Param("shedId") Long shedId);
+
+    List<PricingRule> findByCommunityIdAndStatus(String communityId, String status);
+
+    @Query("SELECT p FROM PricingRule p WHERE (p.shedId = :shedId OR p.communityId = :communityId OR p.shedId IS NULL) " +
+           "AND p.status = 'ACTIVE' ORDER BY p.shedId DESC NULLS LAST")
+    List<PricingRule> findApplicableRulesByCommunity(@Param("shedId") Long shedId, @Param("communityId") String communityId);
 }

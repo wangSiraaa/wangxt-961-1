@@ -42,4 +42,15 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
     List<Reservation> findExpiredReservations(@Param("status") String status, @Param("now") LocalDateTime now);
 
     List<Reservation> findByStatus(String status);
+
+    List<Reservation> findByShedIdAndStatus(Long shedId, String status);
+
+    @Query("SELECT r FROM Reservation r WHERE r.shedId = :shedId AND r.status = 'QUEUED' ORDER BY r.queuePosition ASC")
+    List<Reservation> findQueuedByShedId(@Param("shedId") Long shedId);
+
+    @Query("SELECT r FROM Reservation r WHERE r.vehicleId = :vehicleId AND r.status IN :statuses")
+    List<Reservation> findByVehicleIdAndStatuses(@Param("vehicleId") Long vehicleId, @Param("statuses") List<String> statuses);
+
+    @Query("SELECT MAX(r.queuePosition) FROM Reservation r WHERE r.shedId = :shedId AND r.status = 'QUEUED'")
+    Integer findMaxQueuePosition(@Param("shedId") Long shedId);
 }

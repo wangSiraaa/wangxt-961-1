@@ -42,6 +42,27 @@ public class Billing {
     @Column(name = "service_fee", precision = 10, scale = 2)
     private BigDecimal serviceFee = BigDecimal.ZERO;
 
+    @Column(name = "peak_energy", precision = 8, scale = 2)
+    private BigDecimal peakEnergy = BigDecimal.ZERO;
+
+    @Column(name = "valley_energy", precision = 8, scale = 2)
+    private BigDecimal valleyEnergy = BigDecimal.ZERO;
+
+    @Column(name = "flat_energy", precision = 8, scale = 2)
+    private BigDecimal flatEnergy = BigDecimal.ZERO;
+
+    @Column(name = "peak_amount", precision = 10, scale = 2)
+    private BigDecimal peakAmount = BigDecimal.ZERO;
+
+    @Column(name = "valley_amount", precision = 10, scale = 2)
+    private BigDecimal valleyAmount = BigDecimal.ZERO;
+
+    @Column(name = "flat_amount", precision = 10, scale = 2)
+    private BigDecimal flatAmount = BigDecimal.ZERO;
+
+    @Column(name = "free_minutes")
+    private Integer freeMinutes = 0;
+
     @Column(length = 20)
     private String status = "UNPAID";
 

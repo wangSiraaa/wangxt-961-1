@@ -61,4 +61,10 @@ public class ReservationController {
         List<Long> portIds = reservationService.getAvailablePorts(shedId, startTime, endTime);
         return ApiResponse.success(portIds);
     }
+
+    @GetMapping("/queued")
+    public ApiResponse<List<Reservation>> getQueuedReservations(@RequestParam("shedId") Long shedId) {
+        List<Reservation> queued = reservationService.getQueuedReservations(shedId);
+        return ApiResponse.success(queued);
+    }
 }

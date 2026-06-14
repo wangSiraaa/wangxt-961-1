@@ -18,17 +18,20 @@ public class PropertyService {
     private final PricingRuleRepository pricingRuleRepository;
     private final BillingRepository billingRepository;
     private final UserRepository userRepository;
+    private final BatteryBlacklistRepository batteryBlacklistRepository;
 
     public PropertyService(ChargingShedRepository chargingShedRepository,
                            ChargingPortRepository chargingPortRepository,
                            PricingRuleRepository pricingRuleRepository,
                            BillingRepository billingRepository,
-                           UserRepository userRepository) {
+                           UserRepository userRepository,
+                           BatteryBlacklistRepository batteryBlacklistRepository) {
         this.chargingShedRepository = chargingShedRepository;
         this.chargingPortRepository = chargingPortRepository;
         this.pricingRuleRepository = pricingRuleRepository;
         this.billingRepository = billingRepository;
         this.userRepository = userRepository;
+        this.batteryBlacklistRepository = batteryBlacklistRepository;
     }
 
     public List<ChargingShed> getAllSheds() {
@@ -243,7 +246,8 @@ public class PropertyService {
     public PricingRule createPricingRule(Long shedId, BigDecimal pricePerKwh,
                                          BigDecimal serviceFee, LocalTime peakStartTime, LocalTime peakEndTime,
                                          BigDecimal peakMultiplier, LocalTime valleyStartTime, LocalTime valleyEndTime,
-                                         BigDecimal valleyMultiplier, Boolean isDefault) {
+                                         BigDecimal valleyMultiplier, Boolean isDefault,
+                                         String communityId, Integer freeMinutes, BigDecimal flatPriceMultiplier) {
         PricingRule rule = new PricingRule();
         rule.setRuleName("计费规则-" + System.currentTimeMillis());
         rule.setShedId(shedId);
@@ -257,6 +261,9 @@ public class PropertyService {
         rule.setValleyPriceMultiplier(valleyMultiplier);
         rule.setDefaultRule(isDefault != null ? isDefault : false);
         rule.setStatus("ACTIVE");
+        rule.setCommunityId(communityId);
+        rule.setFreeMinutes(freeMinutes);
+        rule.setFlatPriceMultiplier(flatPriceMultiplier);
 
         if (rule.getDefaultRule()) {
             pricingRuleRepository.findDefaultRule().ifPresent(defaultRule -> {
@@ -272,7 +279,8 @@ public class PropertyService {
     public PricingRule updatePricingRule(Long ruleId, Long shedId, BigDecimal pricePerKwh,
                                          BigDecimal serviceFee, LocalTime peakStartTime, LocalTime peakEndTime,
                                          BigDecimal peakMultiplier, LocalTime valleyStartTime, LocalTime valleyEndTime,
-                                         BigDecimal valleyMultiplier, Boolean isDefault) {
+                                         BigDecimal valleyMultiplier, Boolean isDefault,
+                                         String communityId, Integer freeMinutes, BigDecimal flatPriceMultiplier) {
         PricingRule rule = getPricingRuleById(ruleId);
 
         rule.setShedId(shedId);
@@ -284,6 +292,9 @@ public class PropertyService {
         rule.setValleyStartTime(valleyStartTime);
         rule.setValleyEndTime(valleyEndTime);
         rule.setValleyPriceMultiplier(valleyMultiplier);
+        rule.setCommunityId(communityId);
+        rule.setFreeMinutes(freeMinutes);
+        rule.setFlatPriceMultiplier(flatPriceMultiplier);
 
         if (isDefault != null && isDefault && !rule.getDefaultRule()) {
             rule.setDefaultRule(true);
@@ -362,5 +373,46 @@ public class PropertyService {
     public PricingRule getApplicableRule(Long shedId) {
         List<PricingRule> rules = pricingRuleRepository.findApplicableRules(shedId);
         return rules.isEmpty() ? pricingRuleRepository.findDefaultRule().orElse(null) : rules.get(0);
+    }
+
+    public PricingRule getApplicableRuleByCommunity(Long shedId, String communityId) {
+        List<PricingRule> rules = pricingRuleRepository.findApplicableRulesByCommunity(shedId, communityId);
+        return rules.isEmpty() ? pricingRuleRepository.findDefaultRule().orElse(null) : rules.get(0);
+    }
+
+    @Transactional
+    public ChargingShed updateShedPower(Long shedId, BigDecimal currentTotalPower) {
+        ChargingShed shed = getShedById(shedId);
+        shed.setCurrentTotalPower(currentTotalPower);
+        return chargingShedRepository.save(shed);
+    }
+
+    public List<BatteryBlacklist> getAllBlacklistBrands() {
+        return batteryBlacklistRepository.findByStatus("ACTIVE");
+    }
+
+    @Transactional
+    public BatteryBlacklist addBlacklistBrand(String brandName, String banReason, Long bannedBy) {
+        if (batteryBlacklistRepository.existsByBrandNameAndStatus(brandName, "ACTIVE")) {
+            throw new BusinessException("该品牌已在黑名单中");
+        }
+        BatteryBlacklist entry = new BatteryBlacklist();
+        entry.setBrandName(brandName);
+        entry.setBanReason(banReason);
+        entry.setBannedBy(bannedBy);
+        entry.setStatus("ACTIVE");
+        return batteryBlacklistRepository.save(entry);
+    }
+
+    @Transactional
+    public void removeBlacklistBrand(Long id) {
+        BatteryBlacklist entry = batteryBlacklistRepository.findById(id)
+                .orElseThrow(() -> new BusinessException("黑名单记录不存在"));
+        entry.setStatus("INACTIVE");
+        batteryBlacklistRepository.save(entry);
+    }
+
+    public boolean isBrandBlacklisted(String brandName) {
+        return batteryBlacklistRepository.existsByBrandNameAndStatus(brandName, "ACTIVE");
     }
 }

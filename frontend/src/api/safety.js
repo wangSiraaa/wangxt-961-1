@@ -8,6 +8,14 @@ export function reportTemperature(data) {
   })
 }
 
+export function reportSmoke(data) {
+  return request({
+    url: '/safety/smoke/report',
+    method: 'post',
+    data
+  })
+}
+
 export function handleAlert(alertId, data) {
   return request({
     url: `/safety/alert/handle/${alertId}`,
@@ -24,11 +32,11 @@ export function resolveAlert(alertId, remark) {
   })
 }
 
-export function getAlertList(status, level) {
+export function getAlertList(status, alertType) {
   return request({
     url: '/safety/alert/list',
     method: 'get',
-    params: { status, level }
+    params: { status, alertType }
   })
 }
 
@@ -56,6 +64,43 @@ export function powerOn(portId) {
 export function getHighTemperatureAlerts() {
   return request({
     url: '/safety/high-temperature',
+    method: 'get'
+  })
+}
+
+export function getPowerOffRecords(portId) {
+  return request({
+    url: `/safety/power-off-records/${portId}`,
+    method: 'get'
+  })
+}
+
+export function reviewUnfreeze(data) {
+  return request({
+    url: '/safety/review/unfreeze',
+    method: 'post',
+    data
+  })
+}
+
+export function reviewResume(data) {
+  return request({
+    url: '/safety/review/resume',
+    method: 'post',
+    data
+  })
+}
+
+export function getReviewRecords(vehicleId) {
+  return request({
+    url: `/safety/review-records/${vehicleId}`,
+    method: 'get'
+  })
+}
+
+export function getFrozenVehicles() {
+  return request({
+    url: '/safety/frozen-vehicles',
     method: 'get'
   })
 }

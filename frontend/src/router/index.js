@@ -91,6 +91,12 @@ const routes = [
         name: 'PropertyBills',
         component: () => import('@/views/property/Bills.vue'),
         meta: { title: '账单管理', requiresAuth: true }
+      },
+      {
+        path: 'blacklist',
+        name: 'PropertyBlacklist',
+        component: () => import('@/views/property/Blacklist.vue'),
+        meta: { title: '电池黑名单', requiresAuth: true }
       }
     ]
   },

@@ -152,3 +152,32 @@ export function powerOn(portId) {
     method: 'post'
   })
 }
+
+export function getBlacklist() {
+  return request({
+    url: '/property/blacklist/list',
+    method: 'get'
+  })
+}
+
+export function addBlacklistBrand(brandName, banReason) {
+  return request({
+    url: '/property/blacklist/add',
+    method: 'post',
+    data: { brandName, banReason }
+  })
+}
+
+export function removeBlacklistBrand(id) {
+  return request({
+    url: `/property/blacklist/${id}`,
+    method: 'delete'
+  })
+}
+
+export function getShedRealtimeStatus(shedId) {
+  return request({
+    url: `/property/shed/realtime/${shedId}`,
+    method: 'get'
+  })
+}

@@ -1,13 +1,14 @@
 package com.charging.shed.controller;
 
-import com.charging.shed.dto.AlertHandleDTO;
-import com.charging.shed.dto.AlertResolveDTO;
-import com.charging.shed.dto.ApiResponse;
-import com.charging.shed.dto.TemperatureReportDTO;
-import com.charging.shed.entity.TemperatureAlert;
+import com.charging.shed.dto.*;
+import com.charging.shed.entity.PowerOffRecord;
+import com.charging.shed.entity.ReviewRecord;
+import com.charging.shed.entity.SafetyAlert;
 import com.charging.shed.entity.User;
+import com.charging.shed.entity.Vehicle;
 import com.charging.shed.exception.BusinessException;
-import com.charging.shed.service.TemperatureMonitorService;
+import com.charging.shed.repository.VehicleRepository;
+import com.charging.shed.service.SafetyService;
 import com.charging.shed.util.SecurityUtil;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
@@ -19,11 +20,15 @@ import java.util.List;
 @CrossOrigin(origins = "*")
 public class SafetyController {
 
-    private final TemperatureMonitorService temperatureMonitorService;
+    private final SafetyService safetyService;
+    private final VehicleRepository vehicleRepository;
     private final SecurityUtil securityUtil;
 
-    public SafetyController(TemperatureMonitorService temperatureMonitorService, SecurityUtil securityUtil) {
-        this.temperatureMonitorService = temperatureMonitorService;
+    public SafetyController(SafetyService safetyService,
+                            VehicleRepository vehicleRepository,
+                            SecurityUtil securityUtil) {
+        this.safetyService = safetyService;
+        this.vehicleRepository = vehicleRepository;
         this.securityUtil = securityUtil;
     }
 
@@ -35,48 +40,56 @@ public class SafetyController {
     }
 
     @PostMapping("/temperature/report")
-    public ApiResponse<TemperatureAlert> reportTemperature(@Valid @RequestBody TemperatureReportDTO dto) {
-        TemperatureAlert alert = temperatureMonitorService.reportTemperature(
+    public ApiResponse<SafetyAlert> reportTemperature(@Valid @RequestBody TemperatureReportDTO dto) {
+        SafetyAlert alert = safetyService.reportTemperatureAlert(
                 dto.getPortId(), dto.getTemperature(), dto.getReservationId()
         );
         return ApiResponse.success(alert);
     }
 
+    @PostMapping("/smoke/report")
+    public ApiResponse<SafetyAlert> reportSmoke(@Valid @RequestBody SmokeReportDTO dto) {
+        SafetyAlert alert = safetyService.reportSmokeAlert(
+                dto.getPortId(), dto.getSmokeLevel(), dto.getReservationId()
+        );
+        return ApiResponse.success(alert);
+    }
+
     @PostMapping("/alert/handle/{alertId}")
-    public ApiResponse<TemperatureAlert> handleAlert(@PathVariable Long alertId,
-                                                     @Valid @RequestBody AlertHandleDTO dto) {
+    public ApiResponse<SafetyAlert> handleAlert(@PathVariable Long alertId,
+                                                @Valid @RequestBody AlertHandleDTO dto) {
         checkSafetyRole();
         Long officerId = securityUtil.getCurrentUserId();
-        TemperatureAlert alert = temperatureMonitorService.handleAlert(
+        SafetyAlert alert = safetyService.handleAlert(
                 alertId, officerId, dto.getHandleResult(), dto.getRemark()
         );
         return ApiResponse.success(alert);
     }
 
     @PostMapping("/alert/resolve/{alertId}")
-    public ApiResponse<TemperatureAlert> resolveAlert(@PathVariable Long alertId,
-                                                      @RequestBody AlertResolveDTO dto) {
+    public ApiResponse<SafetyAlert> resolveAlert(@PathVariable Long alertId,
+                                                 @RequestBody AlertResolveDTO dto) {
         checkSafetyRole();
         Long officerId = securityUtil.getCurrentUserId();
-        TemperatureAlert alert = temperatureMonitorService.resolveAlert(
+        SafetyAlert alert = safetyService.resolveAlert(
                 alertId, officerId, dto != null ? dto.getRemark() : null
         );
         return ApiResponse.success(alert);
     }
 
     @GetMapping("/alert/list")
-    public ApiResponse<List<TemperatureAlert>> getAlertList(
+    public ApiResponse<List<SafetyAlert>> getAlertList(
             @RequestParam(required = false) String status,
-            @RequestParam(required = false) String level) {
+            @RequestParam(required = false) String alertType) {
         checkSafetyRole();
-        List<TemperatureAlert> alerts = temperatureMonitorService.getAlerts(status, level);
+        List<SafetyAlert> alerts = safetyService.getAlerts(status, alertType);
         return ApiResponse.success(alerts);
     }
 
     @GetMapping("/alert/{alertId}")
-    public ApiResponse<TemperatureAlert> getAlert(@PathVariable Long alertId) {
+    public ApiResponse<SafetyAlert> getAlert(@PathVariable Long alertId) {
         checkSafetyRole();
-        TemperatureAlert alert = temperatureMonitorService.getAlertById(alertId);
+        SafetyAlert alert = safetyService.getAlertById(alertId);
         return ApiResponse.success(alert);
     }
 
@@ -84,7 +97,7 @@ public class SafetyController {
     public ApiResponse<Void> powerOff(@PathVariable Long portId) {
         checkSafetyRole();
         Long officerId = securityUtil.getCurrentUserId();
-        temperatureMonitorService.manualPowerOff(portId, officerId);
+        safetyService.manualPowerOff(portId, officerId, null);
         return ApiResponse.success(null);
     }
 
@@ -92,14 +105,48 @@ public class SafetyController {
     public ApiResponse<Void> powerOn(@PathVariable Long portId) {
         checkSafetyRole();
         Long officerId = securityUtil.getCurrentUserId();
-        temperatureMonitorService.manualPowerOn(portId, officerId);
+        safetyService.manualPowerOn(portId, officerId);
         return ApiResponse.success(null);
     }
 
-    @GetMapping("/high-temperature")
-    public ApiResponse<List<TemperatureAlert>> getHighTemperatureAlerts() {
+    @GetMapping("/power-off-records/{portId}")
+    public ApiResponse<List<PowerOffRecord>> getPowerOffRecords(@PathVariable Long portId) {
         checkSafetyRole();
-        List<TemperatureAlert> alerts = temperatureMonitorService.getHighTemperatureAlerts();
-        return ApiResponse.success(alerts);
+        List<PowerOffRecord> records = safetyService.getPowerOffRecords(portId);
+        return ApiResponse.success(records);
+    }
+
+    @PostMapping("/review/unfreeze")
+    public ApiResponse<ReviewRecord> reviewUnfreeze(@Valid @RequestBody ReviewDTO dto) {
+        checkSafetyRole();
+        Long reviewerId = securityUtil.getCurrentUserId();
+        ReviewRecord record = safetyService.reviewVehicleUnfreeze(
+                dto.getVehicleId(), reviewerId, dto.getReviewResult(), dto.getRemark()
+        );
+        return ApiResponse.success(record);
+    }
+
+    @PostMapping("/review/resume")
+    public ApiResponse<ReviewRecord> reviewChargeResume(@Valid @RequestBody ReviewDTO dto) {
+        checkSafetyRole();
+        Long reviewerId = securityUtil.getCurrentUserId();
+        ReviewRecord record = safetyService.reviewChargeResume(
+                dto.getVehicleId(), dto.getPowerOffId(), reviewerId, dto.getReviewResult(), dto.getRemark()
+        );
+        return ApiResponse.success(record);
+    }
+
+    @GetMapping("/review-records/{vehicleId}")
+    public ApiResponse<List<ReviewRecord>> getReviewRecords(@PathVariable Long vehicleId) {
+        checkSafetyRole();
+        List<ReviewRecord> records = safetyService.getReviewRecords(vehicleId);
+        return ApiResponse.success(records);
+    }
+
+    @GetMapping("/frozen-vehicles")
+    public ApiResponse<List<Vehicle>> getFrozenVehicles() {
+        checkSafetyRole();
+        List<Vehicle> vehicles = vehicleRepository.findByStatus(Vehicle.Status.FROZEN);
+        return ApiResponse.success(vehicles);
     }
 }

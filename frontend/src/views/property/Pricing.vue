@@ -7,8 +7,11 @@
     <el-table :data="pricingRules" v-loading="loading">
       <el-table-column prop="id" label="ID" width="80" />
       <el-table-column prop="shedId" label="所属车棚" width="100" />
+      <el-table-column prop="communityId" label="社区ID" width="100" />
       <el-table-column prop="pricePerKwh" label="电价(元/kWh)" width="120" />
       <el-table-column prop="serviceFee" label="服务费(元/kWh)" width="140" />
+      <el-table-column prop="freeMinutes" label="免费时长(分)" width="120" />
+      <el-table-column prop="flatPriceMultiplier" label="平电价倍数" width="120" />
       <el-table-column label="峰时段" width="200">
         <template #default="{ row }">
           <span v-if="row.peakStartTime">
@@ -45,7 +48,7 @@
       <el-form
         ref="pricingFormRef"
         :model="pricingForm"
-        :rules="pricingRules"
+        :rules="pricingRulesValidation"
         label-width="120px"
       >
         <el-form-item label="电价" prop="pricePerKwh">
@@ -70,6 +73,31 @@
             style="width: 100%;"
           />
           <span style="color: #909399; font-size: 12px;">单位：元/kWh</span>
+        </el-form-item>
+
+        <el-form-item label="社区ID">
+          <el-input v-model="pricingForm.communityId" placeholder="请输入社区ID" />
+        </el-form-item>
+
+        <el-form-item label="免费时长(分)">
+          <el-input-number
+            v-model="pricingForm.freeMinutes"
+            :min="0"
+            :max="1440"
+            style="width: 100%;"
+          />
+          <span style="color: #909399; font-size: 12px;">0表示无免费时长，最大1440分钟(24小时)</span>
+        </el-form-item>
+
+        <el-form-item label="平电价倍数">
+          <el-input-number
+            v-model="pricingForm.flatPriceMultiplier"
+            :min="0.5"
+            :max="2"
+            :step="0.1"
+            :precision="1"
+            style="width: 100%;"
+          />
         </el-form-item>
 
         <el-divider>峰谷电价</el-divider>
@@ -180,6 +208,9 @@ const pricingFormRef = ref()
 const pricingForm = reactive({
   pricePerKwh: 1.2,
   serviceFee: 0.5,
+  communityId: '',
+  freeMinutes: 0,
+  flatPriceMultiplier: 1.0,
   peakStartTime: null,
   peakEndTime: null,
   peakPriceMultiplier: 1.5,
@@ -220,6 +251,9 @@ const resetForm = () => {
   enablePeakValley.value = false
   pricingForm.pricePerKwh = 1.2
   pricingForm.serviceFee = 0.5
+  pricingForm.communityId = ''
+  pricingForm.freeMinutes = 0
+  pricingForm.flatPriceMultiplier = 1.0
   pricingForm.peakStartTime = null
   pricingForm.peakEndTime = null
   pricingForm.peakPriceMultiplier = 1.5
@@ -235,6 +269,9 @@ const editPricing = (row) => {
   editingPricing.value = row
   pricingForm.pricePerKwh = row.pricePerKwh
   pricingForm.serviceFee = row.serviceFee
+  pricingForm.communityId = row.communityId || ''
+  pricingForm.freeMinutes = row.freeMinutes || 0
+  pricingForm.flatPriceMultiplier = row.flatPriceMultiplier || 1.0
   pricingForm.peakStartTime = row.peakStartTime
   pricingForm.peakEndTime = row.peakEndTime
   pricingForm.peakPriceMultiplier = row.peakPriceMultiplier || 1.5

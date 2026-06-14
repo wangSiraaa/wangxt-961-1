@@ -46,6 +46,12 @@ public class Reservation {
     @Column(name = "cancel_reason", length = 255)
     private String cancelReason;
 
+    @Column(name = "queue_position")
+    private Integer queuePosition;
+
+    @Column(name = "scheduled_start_time")
+    private LocalDateTime scheduledStartTime;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", insertable = false, updatable = false)
     private User user;
@@ -77,5 +83,6 @@ public class Reservation {
         String COMPLETED = "COMPLETED";
         String CANCELLED = "CANCELLED";
         String EXPIRED = "EXPIRED";
+        String QUEUED = "QUEUED";
     }
 }

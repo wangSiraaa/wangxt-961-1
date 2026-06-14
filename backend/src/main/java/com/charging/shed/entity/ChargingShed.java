@@ -29,6 +29,12 @@ public class ChargingShed {
     @Column(name = "available_ports")
     private Integer availablePorts = 0;
 
+    @Column(name = "max_power_limit", precision = 10, scale = 2)
+    private BigDecimal maxPowerLimit = new BigDecimal("100.00");
+
+    @Column(name = "current_total_power", precision = 10, scale = 2)
+    private BigDecimal currentTotalPower = BigDecimal.ZERO;
+
     @Column(length = 20)
     private String status = "OPEN";
 
