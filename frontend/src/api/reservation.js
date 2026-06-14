@@ -44,3 +44,10 @@ export function getQueuedReservations(shedId) {
     params: { shedId }
   })
 }
+
+export function getReservationsByShed(shedId) {
+  return request({
+    url: `/reservation/shed/${shedId}`,
+    method: 'get'
+  })
+}

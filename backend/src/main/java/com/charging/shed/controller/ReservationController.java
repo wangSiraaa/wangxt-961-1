@@ -67,4 +67,10 @@ public class ReservationController {
         List<Reservation> queued = reservationService.getQueuedReservations(shedId);
         return ApiResponse.success(queued);
     }
+
+    @GetMapping("/shed/{shedId}")
+    public ApiResponse<List<Reservation>> getReservationsByShed(@PathVariable Long shedId) {
+        List<Reservation> reservations = reservationService.getReservationsByShedId(shedId);
+        return ApiResponse.success(reservations);
+    }
 }

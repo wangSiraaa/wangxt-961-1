@@ -406,7 +406,6 @@ const loadAlerts = async () => {
   try {
     const data = await getAlertList(
       filterStatus.value || undefined,
-      null,
       filterAlertType.value || undefined
     )
     alerts.value = (data || []).sort((a, b) => {
@@ -515,7 +514,8 @@ const submitReviewUnfreeze = async () => {
     if (valid) {
       submitting.value = true
       try {
-        await reviewUnfreezeApi(reviewTarget.vehicleId, {
+        await reviewUnfreezeApi({
+          vehicleId: reviewTarget.vehicleId,
           reviewResult: reviewUnfreezeForm.reviewResult,
           remark: reviewUnfreezeForm.remark
         })
@@ -565,7 +565,8 @@ const submitReviewResume = async () => {
     if (valid) {
       submitting.value = true
       try {
-        await reviewResumeApi(reviewResumeTarget.vehicleId, {
+        await reviewResumeApi({
+          vehicleId: reviewResumeTarget.vehicleId,
           powerOffId: reviewResumeTarget.powerOffId,
           reviewResult: reviewResumeForm.reviewResult,
           remark: reviewResumeForm.remark

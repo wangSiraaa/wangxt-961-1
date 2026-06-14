@@ -385,4 +385,8 @@ public class ReservationService {
     public List<Reservation> getQueuedReservations(Long shedId) {
         return reservationRepository.findQueuedByShedId(shedId);
     }
+
+    public List<Reservation> getReservationsByShedId(Long shedId) {
+        return reservationRepository.findByShedId(shedId);
+    }
 }

@@ -197,20 +197,13 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Refresh, User, Check, Warning } from '@element-plus/icons-vue'
+import { Refresh, User, Check, Warning, Loading } from '@element-plus/icons-vue'
 import { getShedList } from '@/api/public'
 import { getPortList, powerOff, powerOn } from '@/api/property'
-import { getAlertList, getPowerOffRecords } from '@/api/safety'
-import { getReservationList } from '@/api/reservation'
+import { getAlertList, getPowerOffRecords, getFrozenVehicles } from '@/api/safety'
+import { getReservationsByShed } from '@/api/reservation'
 import * as echarts from 'echarts'
 import dayjs from 'dayjs'
-
-const Loading = {
-  name: 'Loading',
-  render() {
-    return <svg viewBox="0 0 1024 1024" width="1em" height="1em" fill="currentColor"><path d="M512 64a32 32 0 0 1 32 32v192a32 32 0 0 1-64 0V96a32 32 0 0 1 32-32zm0 640a32 32 0 0 1 32 32v192a32 32 0 0 1-64 0V736a32 32 0 0 1 32-32z" /></svg>
-  }
-}
 
 const loading = ref(false)
 const sheds = ref([])
@@ -218,6 +211,7 @@ const ports = ref([])
 const alerts = ref([])
 const reservations = ref([])
 const powerOffRecords = ref([])
+const frozenVehicles = ref([])
 const filterShedId = ref(null)
 const selectedPort = ref(null)
 const chartRef = ref(null)
@@ -335,7 +329,7 @@ const selectPort = (port) => {
 const loadPortLifecycle = async (port) => {
   try {
     const [alertData, records] = await Promise.all([
-      getAlertList(null, null, null),
+      getAlertList(null, null),
       getPowerOffRecords(port.id)
     ])
     alerts.value = alertData || []
@@ -366,6 +360,10 @@ const isStageActive = (stageKey) => {
     return !port.powerOn
   }
   if (stageKey === 'FROZEN') {
+    const reservation = getActiveReservation(port)
+    if (reservation && reservation.vehicleId) {
+      return frozenVehicles.value.some(v => v.id === reservation.vehicleId)
+    }
     return false
   }
   if (stageKey === 'REVIEW') {
@@ -423,6 +421,17 @@ const getStageTime = (stageKey) => {
     const record = powerOffRecords.value.find(r => r.portId === port.id && r.status === 'POWER_OFF')
     if (record) return formatTime(record.powerOffTime)
   }
+  if (stageKey === 'FROZEN') {
+    const reservation = getActiveReservation(port)
+    if (reservation && reservation.vehicleId) {
+      const frozen = frozenVehicles.value.find(v => v.id === reservation.vehicleId)
+      if (frozen) return formatTime(frozen.frozenAt || frozen.updatedAt)
+    }
+  }
+  if (stageKey === 'REVIEW') {
+    const record = powerOffRecords.value.find(r => r.portId === port.id && r.status === 'POWER_OFF')
+    if (record) return record.powerOffType === 'AUTO' ? '待人工复核' : '已手动断电'
+  }
   return ''
 }
 
@@ -438,6 +447,17 @@ const getStageDetail = (stageKey) => {
   if (stageKey === 'POWER_OFF') {
     const record = powerOffRecords.value.find(r => r.portId === port.id && r.status === 'POWER_OFF')
     if (record) return record.reason || ''
+  }
+  if (stageKey === 'FROZEN') {
+    const reservation = getActiveReservation(port)
+    if (reservation && reservation.vehicleId) {
+      const frozen = frozenVehicles.value.find(v => v.id === reservation.vehicleId)
+      if (frozen) return frozen.frozenReason || '温度异常自动冻结'
+    }
+  }
+  if (stageKey === 'REVIEW') {
+    const record = powerOffRecords.value.find(r => r.portId === port.id && r.status === 'POWER_OFF')
+    if (record) return record.reviewStatus === 'APPROVED' ? '已通过' : '待复核'
   }
   return ''
 }
@@ -459,14 +479,16 @@ const loadPorts = async () => {
 
   loading.value = true
   try {
-    const [portData, alertData, reservationData] = await Promise.all([
+    const [portData, alertData, reservationData, frozenData] = await Promise.all([
       getPortList(filterShedId.value),
-      getAlertList(null, null, null),
-      getReservationList()
+      getAlertList(null, null),
+      getReservationsByShed(filterShedId.value),
+      getFrozenVehicles()
     ])
     ports.value = portData
     alerts.value = alertData || []
     reservations.value = reservationData || []
+    frozenVehicles.value = frozenData || []
     updateChart()
   } catch (error) {
     console.error('加载数据失败:', error)

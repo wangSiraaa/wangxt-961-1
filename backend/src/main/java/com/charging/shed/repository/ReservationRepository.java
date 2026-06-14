@@ -45,6 +45,8 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 
     List<Reservation> findByShedIdAndStatus(Long shedId, String status);
 
+    List<Reservation> findByShedId(Long shedId);
+
     @Query("SELECT r FROM Reservation r WHERE r.shedId = :shedId AND r.status = 'QUEUED' ORDER BY r.queuePosition ASC")
     List<Reservation> findQueuedByShedId(@Param("shedId") Long shedId);
 
